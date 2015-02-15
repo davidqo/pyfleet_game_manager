@@ -1,0 +1,11 @@
+{application, pyfleet_game_manager,
+ [
+  {description, "A Pyfleet Game manager library"},
+  {vsn, "0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
