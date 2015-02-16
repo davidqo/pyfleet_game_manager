@@ -34,7 +34,7 @@
     running_game_count = 0,
     max_game_count = ?MAX_GAME_COUNT,
     running_game_list,
-    game_id_queue :: queue()
+    game_id_queue :: queue:queue()
 }).
 
 %%%===================================================================
@@ -93,17 +93,18 @@ init([SupRef]) ->
     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
     {stop, Reason :: term(), NewState :: #state{}}).
 
-handle_call(#pyfleet_create_game{game_type = GameType, options = Options, player_name = PlayerName, player_ref = PlayerRef}, {_, _}, State = #state{sup_ref = SupRef, running_game_count = RunningGameCount, max_game_count = MaxGameCount, running_game_list = RunningGameList, game_id_queue = GameIdQueue}) when RunningGameCount < MaxGameCount ->
+handle_call(#pyfleet_create_game{game_type = GameType, options = Options, player_name = PlayerName, player_ref = PlayerRef}, {_, _}, State = #state{game_sup_ref = GameSupRef, running_game_count = RunningGameCount, max_game_count = MaxGameCount, running_game_list = RunningGameList, game_id_queue = GameIdQueue}) when RunningGameCount < MaxGameCount ->
   io:format("Pyfleet game manager. Create game~n", []),
-  case pyfleet_game:create_game(GameType, SupRef, PlayerName, PlayerRef, Options) of
+  case pyfleet_game:create_game(GameType, GameSupRef, PlayerName, PlayerRef, Options) of
     {ok, GameRef} ->
+      io:format("Game ~p is created~n", [GameRef]),
       {GameId, GameIdQueue2} = get_game_id(GameIdQueue),
       {reply, {ok, GameRef}, State#state{running_game_count = RunningGameCount + 1, game_id_queue = GameIdQueue2, running_game_list = [#game_description{id = GameId, player_count = 1, game_ref = GameRef, player_list = [{PlayerName, PlayerRef}], options = Options} | RunningGameList]}};
     {error, Cause} ->
       {reply, {error, Cause}, State}
   end;
-handle_call(#pyfleet_join_game{game_ref = GameRef, player_name = PlayerName, player_ref = PlayerRef}, From, State = #state{running_game_list = RunningGameList, game_id_queue = GameIdQueue}) ->
-  io:format("Pyfleet game manager. Create game~n", []),
+handle_call(#pyfleet_join_game{game_ref = GameRef, player_name = PlayerName, player_ref = PlayerRef}, From, State = #state{running_game_list = RunningGameList}) ->
+  io:format("Pyfleet game manager. Player ~p join game~n", [PlayerName]),
   case lists:keytake(GameRef, #game_description.game_ref, RunningGameList) of
     {value, GameDescription = #game_description{player_list = PlayerList}, GameList2} ->
       GameDescription2 = GameDescription#game_description{player_list = lists:keystore(PlayerName, 1, PlayerList, {PlayerName, PlayerRef})},
